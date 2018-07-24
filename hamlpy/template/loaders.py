@@ -8,15 +8,22 @@ from hamlpy.template.utils import get_django_template_loaders
 
 
 def get_haml_loader(loader):
-    if hasattr(loader, 'Loader'):
-        baseclass = loader.Loader
-    else:
-        class baseclass(object):
-            def load_template_source(self, *args, **kwargs):
-                return loader.load_template_source(*args, **kwargs)
+    class Loader(loader.Loader):
+        def get_contents(self, origin):
+            # >= Django 1.9
+            contents = super(Loader, self).get_contents(origin)
+            name, _extension = os.path.splitext(origin.template_name)
+            # os.path.splitext always returns a period at the start of extension
+            extension = _extension.lstrip('.')
 
-    class Loader(baseclass):
+            if extension in hamlpy.VALID_EXTENSIONS:
+                hamlParser = hamlpy.Compiler()
+                return hamlParser.process(contents)
+
+            return contents
+
         def load_template_source(self, template_name, *args, **kwargs):
+            # < Django 1.9
             _name, _extension = os.path.splitext(template_name)
 
             for extension in hamlpy.VALID_EXTENSIONS:
